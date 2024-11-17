@@ -1,126 +1,46 @@
-import requests
-import hmac
-import hashlib
-import time
-import os
 import argparse
+from config_manager import ConfigManager
+from rest_api_manager import BinanceRestAPI
 
 
-def load_secrets(file_path="binance_secrets.txt"):
-    """Load API key and secret from a file."""
-    secrets = {}
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Secret file not found: {file_path}")
-    with open(file_path, "r") as file:
-        for line in file:
-            key, value = line.strip().split("=", 1)
-            secrets[key] = value
-    return secrets
-
-
-def get_config(env):
-    """Return configuration based on environment (testnet or real market)."""
-    secrets = load_secrets()
+def neutralise_position(env, trading_pair):
+    """Neutralise the position for the given trading pair."""
     try:
-        if env == "testnet":
-            return {
-                "base_url": "https://testnet.binance.vision/api",
-                "api_key": secrets["TESTNET_API_KEY"],
-                "api_secret": secrets["TESTNET_API_SECRET"],
-            }
-        elif env == "real":
-            return {
-                "base_url": "https://api.binance.com/api",
-                "api_key": secrets["REAL_API_KEY"],
-                "api_secret": secrets["REAL_API_SECRET"],
-            }
-        else:
-            raise ValueError("Invalid environment. Use 'testnet' or 'real'.")
-    except KeyError as e:
-        raise ValueError(f"Missing key in secrets file: {e}")
+        # Load configuration based on the environment
+        config_manager = ConfigManager()
+        config = config_manager.get_config(env)
 
-
-def create_signature(query_string, api_secret):
-    """Create HMAC SHA256 signature."""
-    return hmac.new(
-        api_secret.encode("utf-8"),
-        query_string.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-
-
-def fetch_balance(base_url, api_key, api_secret, trading_pair):
-    """Fetch account balance via REST API."""
-    headers = {"X-MBX-APIKEY": api_key}
-
-    # Generate the query string with a timestamp
-    timestamp = int(time.time() * 1000)
-    query_string = f"timestamp={timestamp}"
-    signature = create_signature(query_string, api_secret)
-    query_string += f"&signature={signature}"
-
-    response = requests.get(f"{base_url}/v3/account?{query_string}", headers=headers)
-    response.raise_for_status()  # Raise an error if the request failed
-
-    # Parse the balances
-    base_asset = trading_pair[:-4]  # Extract base asset from the trading pair (e.g., DOGE from DOGEUSDT)
-    balances = response.json().get("balances", [])
-    asset_balance = next((b for b in balances if b["asset"] == base_asset), {"free": "0.0"})
-    return float(asset_balance["free"])
-
-
-def place_market_order(base_url, api_key, api_secret, side, trading_pair, quantity):
-    """Place a market order via REST API."""
-    headers = {"X-MBX-APIKEY": api_key}
-
-    # Generate the query string with timestamp and parameters
-    timestamp = int(time.time() * 1000)
-    query_string = (
-        f"symbol={trading_pair}&side={side}&type=MARKET&quantity={quantity}&timestamp={timestamp}"
-    )
-    signature = create_signature(query_string, api_secret)
-    query_string += f"&signature={signature}"
-
-    response = requests.post(f"{base_url}/v3/order", headers=headers, params=query_string)
-    response.raise_for_status()  # Raise an error if the request failed
-
-    return response.json()
-
-
-def neutralize_position(env, trading_pair):
-    """Neutralize the position for the trading pair."""
-    try:
-        # Get configuration based on the environment
-        config = get_config(env)
-        base_url = config["base_url"]
-        api_key = config["api_key"]
-        api_secret = config["api_secret"]
+        # Initialise the Binance REST API wrapper
+        rest_api = BinanceRestAPI(config["base_url"], config["api_key"], config["api_secret"])
 
         # Fetch the current balance for the base asset
-        base_balance = fetch_balance(base_url, api_key, api_secret, trading_pair)
-        print(f"Current {trading_pair[:-4]} balance: {base_balance:.4f}")
+        balances = rest_api.get_account_balance()
+        base_asset = trading_pair[:-4]  # Extract base asset (e.g., DOGE from DOGEUSDT)
+        base_balance = float(next((b["free"] for b in balances["balances"] if b["asset"] == base_asset), 0.0))
+        print(f"Current {base_asset} balance: {base_balance:.4f}")
 
+        # Neutralise position
         if base_balance > 0:
-            print(f"Selling {trading_pair[:-4]} to neutralize position...")
-            response = place_market_order(base_url, api_key, api_secret, "SELL", trading_pair, base_balance)
+            print(f"Selling {base_balance:.4f} {base_asset} to neutralise position...")
+            response = rest_api.place_market_order(symbol=trading_pair, side="SELL", quantity=base_balance)
+            print(f"Order placed: {response}")
         elif base_balance < 0:
-            print(f"Buying {trading_pair[:-4]} to neutralize position...")
-            response = place_market_order(base_url, api_key, api_secret, "BUY", trading_pair, abs(base_balance))
+            print(f"Buying {abs(base_balance):.4f} {base_asset} to neutralise position...")
+            response = rest_api.place_market_order(symbol=trading_pair, side="BUY", quantity=abs(base_balance))
+            print(f"Order placed: {response}")
         else:
-            print("Position already neutral.")
-            return
-
-        print(f"Order placed: {response}")
+            print(f"Position is already neutral for {base_asset}.")
     except Exception as e:
         print(f"Error: {e}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Neutralize Binance Position")
+    parser = argparse.ArgumentParser(description="Neutralise Binance Position")
     parser.add_argument("--pair", required=True, help="Trading pair (e.g., DOGEUSDT)")
     parser.add_argument(
-        "--env", choices=["testnet", "real"], default="testnet", help="Environment: testnet or real (default: testnet)"
+        "--env", choices=["testnet", "real"], default="testnet",
+        help="Environment: testnet or real (default: testnet)"
     )
     args = parser.parse_args()
 
-    neutralize_position(args.env, args.pair)
+    neutralise_position(args.env, args.pair)

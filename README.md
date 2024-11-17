@@ -55,8 +55,8 @@ REAL_API_SECRET=your_real_api_secret
 #### Order Book
 To display the order book in real time:
 ```bash
-python orderbook.py --env testnet  # For testnet
-python orderbook.py --env real     # For real market
+python order_book.py --env testnet --pair DOGEUSDT # For testnet DOGEUSDT
+python order_book.py --env real --pair DOGEUSDT # For real market DOGEUSDT
 ```
 
 #### Neutralise Position
