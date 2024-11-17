@@ -10,16 +10,20 @@ import {
     TableRow,
     Paper,
     Grid,
+    TextField,
+    Button,
 } from "@mui/material";
 
 const Testnet = () => {
+    const [pair, setPair] = useState("BTCUSDT"); // Default market
+    const [searchInput, setSearchInput] = useState("");
     const [orderBook, setOrderBook] = useState({
         top_of_book: {},
         order_book_depth: { bids: [], asks: [] },
     });
 
     useEffect(() => {
-        const ws = new WebSocket("ws://localhost:8765"); // Update port if needed
+        const ws = new WebSocket(`ws://localhost:8765?pair=${pair}`); // Pass the selected pair to the backend
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -27,29 +31,42 @@ const Testnet = () => {
         };
 
         return () => ws.close();
-    }, []);
+    }, [pair]); // Reconnect WebSocket when the pair changes
+
+    const handleSearchSubmit = () => {
+        if (searchInput.trim()) {
+            setPair(searchInput.toUpperCase());
+            setSearchInput(""); // Clear the input field
+        }
+    };
 
     const { top_of_book, order_book_depth } = orderBook;
 
     // Calculate the spread
-    const bestBidPrice = parseFloat(top_of_book.best_bid_price || 0);
-    const bestAskPrice = parseFloat(top_of_book.best_ask_price || 0);
-    const spread = bestAskPrice && bestBidPrice ? (bestAskPrice - bestBidPrice).toFixed(6) : "N/A";
+    const spread =
+        top_of_book.best_ask_price && top_of_book.best_bid_price
+            ? (top_of_book.best_ask_price - top_of_book.best_bid_price).toFixed(8)
+            : "N/A";
 
     return (
         <Box p={4}>
             <Typography variant="h3" align="center" gutterBottom>
-                Testnet Order Book
+                {`Testnet Order Book - ${pair}`}
             </Typography>
 
-            {/* Spread Section */}
-            <Box mt={2} mb={4} textAlign="center">
-                <Typography variant="h5" gutterBottom>
-                    Spread: {spread}
-                </Typography>
+            <Box mt={2} display="flex" justifyContent="center">
+                <TextField
+                    label="Enter Market (e.g., BTCUSDT)"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    variant="outlined"
+                    sx={{ mr: 2 }}
+                />
+                <Button variant="contained" color="primary" onClick={handleSearchSubmit}>
+                    Search
+                </Button>
             </Box>
 
-            {/* Top of Book */}
             <Box mt={4}>
                 <Typography variant="h5">Top of Book</Typography>
                 <TableContainer component={Paper} sx={{ mt: 2 }}>
@@ -72,12 +89,15 @@ const Testnet = () => {
                                 <TableCell align="center">{top_of_book.best_ask_price || "N/A"}</TableCell>
                                 <TableCell align="center">{top_of_book.best_ask_qty || "N/A"}</TableCell>
                             </TableRow>
+                            <TableRow>
+                                <TableCell align="center" colSpan={2}><b>Spread</b></TableCell>
+                                <TableCell align="center">{spread}</TableCell>
+                            </TableRow>
                         </TableBody>
                     </Table>
                 </TableContainer>
             </Box>
 
-            {/* Order Book Depth */}
             <Box mt={6}>
                 <Typography variant="h5">Order Book Depth</Typography>
                 <Grid container spacing={4} mt={2}>
