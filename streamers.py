@@ -5,7 +5,7 @@ async def stream_book_ticker(ws_url, symbol, data_manager):
     ws = BinanceWebSocket(ws_url, symbol)
     book_ticker_socket = await ws.connect_book_ticker()
 
-    print("Connected to @bookTicker WebSocket")
+    print(f"Connected to {symbol} @bookTicker WebSocket")
     try:
         while True:
             data = await ws.receive_message(book_ticker_socket)
