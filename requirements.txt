@@ -1,0 +1,7 @@
+websockets
+tabulate
+requests
+asyncio
+matplotlib
+pandas
+statsmodels

@@ -1,0 +1,25 @@
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# IDEs and editors
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Secrets
+binance_secrets.txt
