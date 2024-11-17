@@ -6,15 +6,18 @@ class BinanceWebSocket:
     """WebSocket handler for Binance."""
 
     def __init__(self, ws_url, symbol):
-        self.ws_url = ws_url
-        self.symbol = symbol
+        self.book_ticker_url = f"{ws_url}/{symbol}@bookTicker"
+        self.depth_url = f"{ws_url}/{symbol}@depth20@100ms"
 
-    async def connect(self):
-        """Establish a WebSocket connection."""
-        url = f"{self.ws_url}/{self.symbol}@depth5"
-        return await websockets.connect(url)
+    async def connect_book_ticker(self):
+        """Establish a WebSocket connection for @bookTicker."""
+        return await websockets.connect(self.book_ticker_url)
 
-    async def receive_order_book(self, websocket):
-        """Receive order book data from WebSocket."""
+    async def connect_depth(self):
+        """Establish a WebSocket connection for @depth."""
+        return await websockets.connect(self.depth_url)
+
+    async def receive_message(self, websocket):
+        """Receive a message from a WebSocket."""
         message = await websocket.recv()
         return json.loads(message)

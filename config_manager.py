@@ -1,4 +1,3 @@
-# config_manager.py
 import os
 
 
@@ -6,7 +5,8 @@ class ConfigManager:
     """Manages configuration and API keys."""
 
     def __init__(self, file_path="binance_secrets.txt"):
-        self.file_path = file_path
+        # Use absolute path relative to this file
+        self.file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_path)
         self.secrets = self._load_secrets()
 
     def _load_secrets(self):
